@@ -135,27 +135,57 @@ export default function BlogDetay({blog,ilgiliBloglar}){
 }
 
 
-export async function getServerSideProps({params}){
-    //params url den gelen değişkenler mesele params.slug yani slug değerini aldık
+//getStaticPaths
+export async function getStaticPaths() {
+    //BUILD TIME'DA tüm blog sayfalarını oluştur
+    
+    const bloglar = tumBloglariGetir()
+    
+    //Her blog için bir path (yol) oluştur
+    const paths = bloglar.map(blog => ({
+        params: { slug: blog.slug }
+        //Örnek: { params: { slug: 'yazilim-dunyasina-giris' } }
+    }))
+    
+    return {
+        paths,  // [{ params: { slug: '...' } }, { params: { slug: '...' } }, ...]
+        fallback: false  
+        //fallback: false = Listede olmayan slug'lar 404 döner
+    }
+}
 
-    const slug=params.slug
+
+export async function getStaticProps({params}){
+    //BUILD TIME'DA her slug için bu fonksiyon çalışır
+    
+    //params URL'den gelen değişkenler mesela params.slug yani slug değerini aldık
+    const slug = params.slug
     // URL: /blog/yazilim-dunyasina-giris
     // slug = 'yazilim-dunyasina-giris'
 
-    const blog=blogGetir(slug)
+    
+    const blog = blogGetir(slug)
+
+    
+    //Eğer blog bulunamadıysa 404
     if(!blog){
-        return{
-            notFound:true //otamtaik olarak 404 sayfası er,r
+        return {
+            notFound: true  //Next.js otomatik 404 sayfası gösterir
         }
     }
 
-    const tumBloglar=tumBloglariGetir()
-
-    const ilgiliBloglar=tumBloglar.filter(b=>b.kategori===blog.kategori && b.id !== blog.id).slice(0,3)
-    return{
-        props:{
-            blog,
-            ilgiliBloglar
-        }
+    //İlgili blogları bul (aynı kategoriden, kendisi hariç)
+    const tumBloglar = tumBloglariGetir()
+    const ilgiliBloglar = tumBloglar
+        .filter(b => b.kategori === blog.kategori && b.id !== blog.id)
+        .slice(0, 3)
+    
+    
+    return {
+        props: {
+            blog,  //Ana blog yazısı
+            ilgiliBloglar  //Aynı kategoriden diğer bloglar (max 3 tane)
+        },
+        revalidate: 3600  //ISR - 1 saatte bir yeniden oluştur
     }
 }
